@@ -12,18 +12,15 @@ class AnimalView(APIView):
         serialized_request = AnimalSerializer(data=request.data)
 
         if not serialized_request.is_valid():
-            return Response(
-                serialized_request.errors,
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
         animal_data = serialized_request.data
         group_data = animal_data.pop("group")
-        characteristic_set_data = animal_data.pop(
-            "characteristic_set",
-        )
+        characteristic_set_data = animal_data.pop("characteristic_set")
 
-        group: Group = Group.objects.create(**group_data)
+        group: Group
+        group, _ = Group.objects.get_or_create(**group_data)
+
         animal: Animal = Animal.objects.create(**animal_data, group=group)
 
         from .services import create_animal_characteristics
@@ -37,20 +34,29 @@ class AnimalView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
-    def get(self, request, animal_id):
-        animals = Animal.objects.all()
-        serialized_animals = AnimalSerializer(animals, many=True)
-
+    def get(self, request, animal_id=0):
         if animal_id:
             try:
                 animal = Animal.objects.get(id=animal_id)
                 serialized_animal = AnimalSerializer(animal)
-                return Response(serialized_animal.data, status=status.HTTP_200_OK)
-
-            except ObjectDoesNotExist:
                 return Response(
-                    {"msg": "Invalid animal_id"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    serialized_animal.data,
+                    status=status.HTTP_200_OK,
                 )
 
+            except ObjectDoesNotExist:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+        animals = Animal.objects.all()
+        serialized_animals = AnimalSerializer(animals, many=True)
+
         return Response(serialized_animals.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, animal_id=0):
+        try:
+            animal = Animal.objects.get(id=animal_id)
+            animal.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except ObjectDoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
