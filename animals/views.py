@@ -1,15 +1,13 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.core.exceptions import ObjectDoesNotExist
 
 from .serializers import AnimalSerializer
 from .models import Animal, Group
 
 
 class AnimalView(APIView):
-    def get(self, request):
-        return Response({"msg": "Hello Animals"})
-
     def post(self, request):
         serialized_request = AnimalSerializer(data=request.data)
 
@@ -38,3 +36,21 @@ class AnimalView(APIView):
             serialized_animal.data,
             status=status.HTTP_201_CREATED,
         )
+
+    def get(self, request, animal_id):
+        animals = Animal.objects.all()
+        serialized_animals = AnimalSerializer(animals, many=True)
+
+        if animal_id:
+            try:
+                animal = Animal.objects.get(id=animal_id)
+                serialized_animal = AnimalSerializer(animal)
+                return Response(serialized_animal.data, status=status.HTTP_200_OK)
+
+            except ObjectDoesNotExist:
+                return Response(
+                    {"msg": "Invalid animal_id"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        return Response(serialized_animals.data, status=status.HTTP_200_OK)
